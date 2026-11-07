@@ -46,10 +46,8 @@ async function run(fn){if(busy)return;disable(true);try{await fn();}catch(e){sho
 $('sign-in').addEventListener('submit',event=>{event.preventDefault();run(async()=>{
  const form=event.currentTarget,email=form.elements.email.value,password=form.elements.password.value;form.elements.password.value='';
  const c=await configuration(),r=await fetch(c.supabase_url+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:c.publishable_key,'content-type':'application/json'},body:JSON.stringify({email,password})}),out=await r.json();
- if(!r.ok||!out.access_token)throw Error('Sign-in did not succeed. Verify your account or use the existing recovery flow.');
- accessToken=out.access_token;/* Refresh tokens are deliberately not retained. */
- $('login').hidden=true;$('review').hidden=false;show('Signed in. Load the specific TPB request.');
- if(recoveryMode)await loadRecovery();else if($('request-id').value)await load();
+ if(!r.ok||!out.access_token)throw Error('Sign-in did not succeed. Verify your password or use email-code sign-in below.');
+ await acceptSignIn(out);
 });});
 $('load-request').addEventListener('submit',event=>{event.preventDefault();run(load);});
 for(const action of ['approve','reject','revoke'])$(action).addEventListener('click',()=>run(async()=>{
@@ -68,3 +66,25 @@ window.addEventListener('pagehide',()=>{accessToken=null;reviewed=null;});
 const candidate=new URL(location.href).searchParams.get('request_id');
 if(candidate&&/^[0-9a-f-]{36}$/i.test(candidate))$('request-id').value=candidate;
 
+
+async function acceptSignIn(out){
+ if(!out.access_token)throw Error('Sign-in did not succeed. Request a fresh email code or verify your password.');
+ accessToken=out.access_token;/* Keep access in memory only; discard refresh token. */
+ $('login').hidden=true;$('review').hidden=false;
+ show('Signed in. Load the specific TPB request.');
+ if(recoveryMode)await loadRecovery();else if($('request-id').value)await load();
+}
+$('send-code').addEventListener('submit',event=>{event.preventDefault();run(async()=>{
+ const email=$('code-email').value.trim();
+ if(!email)throw Error('Enter your existing founder account email.');
+ const c=await configuration(),r=await fetch(c.supabase_url+'/auth/v1/otp',{method:'POST',headers:{apikey:c.publishable_key,'content-type':'application/json'},body:JSON.stringify({email,create_user:false})});
+ if(!r.ok)throw Error('Email sign-in request failed. Wait before requesting another code.');
+ $('verify-code').hidden=false;show('Check your email. Enter the sign-in code below yourself. Do not share it in chat. If the email contains only a link, do not use this code form.');
+});});
+$('verify-code').addEventListener('submit',event=>{event.preventDefault();run(async()=>{
+ const email=$('code-email').value.trim(),token=$('email-code').value.trim();$('email-code').value='';
+ if(!email||!/^\d{6,10}$/.test(token))throw Error('Enter the code from your email.');
+ const c=await configuration(),r=await fetch(c.supabase_url+'/auth/v1/verify',{method:'POST',headers:{apikey:c.publishable_key,'content-type':'application/json'},body:JSON.stringify({email,token,type:'email'})}),out=await r.json();
+ if(!r.ok)throw Error('Code sign-in failed. The code may have expired or already been used. Request a fresh code.');
+ await acceptSignIn(out);
+});});
