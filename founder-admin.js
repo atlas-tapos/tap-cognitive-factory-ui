@@ -1,6 +1,7 @@
 const ENDPOINT='https://naffdaxyizjbqcwkawju.supabase.co/functions/v1/tap-reliability/founder-admin';
 const $=id=>document.getElementById(id);
 let accessToken=null,config=null,reviewed=null,busy=false;
+const recoveryMode=new URL(location.href).searchParams.get('recovery')==='elevenlabs';
 const show=message=>{$('status').textContent=message;};
 function disable(value){busy=value;for(const el of document.querySelectorAll('button'))el.disabled=value;}
 async function configuration(){
@@ -25,6 +26,22 @@ async function load(){
  $('expiry').textContent='Request expires: '+new Date(r.expires_at).toLocaleString()+'. Approved actions expire within 15 minutes.';
  $('decision').hidden=false;show('Review loaded. No administrative action has been executed.');
 }
+
+async function loadRecovery(){
+ const out=await api('recovery_review');
+ if(out.state==='executed'){show('Recovery receipt already exists: '+out.receipt.correlation_id+'. Codex will verify it.');return;}
+ reviewed={id:out.request_id,hash:out.request_sha256};
+ $('load-request').hidden=true;$('decision').hidden=false;$('risk-accepted').checked=false;
+ $('outcome').textContent='Confirm the existing ElevenLabs recovery transaction';
+ $('reason').textContent='Restore the original binding for at most 15 minutes and issue one exact catalog approval. Existing founder scope authorization remains unchanged.';
+ $('facts').replaceChildren();
+ for(const [label,value]of [['Acting agent',out.details.reference.agent_id],['Target',out.details.reference.target_system],['Operation',out.details.reference.capability_id],['Effects',out.details.effects],['Excluded',out.details.excluded]])field(label,value);
+ $('exact-packet').textContent=JSON.stringify({request_sha256:out.request_sha256,details:out.details,before:out.before},null,2);
+ $('expiry').textContent='This exact transaction expires '+new Date(out.expires_at).toLocaleString()+'. No credential is displayed or rotated.';
+ $('approve').textContent='Confirm recovery transaction';$('reject').hidden=true;$('revoke').hidden=true;
+ show('Founder identity verified. Review the exact transaction, then confirm once.');
+}
+
 async function run(fn){if(busy)return;disable(true);try{await fn();}catch(e){show(e.message);}finally{disable(false);}}
 $('sign-in').addEventListener('submit',event=>{event.preventDefault();run(async()=>{
  const form=event.currentTarget,email=form.elements.email.value,password=form.elements.password.value;form.elements.password.value='';
@@ -32,14 +49,14 @@ $('sign-in').addEventListener('submit',event=>{event.preventDefault();run(async(
  if(!r.ok||!out.access_token)throw Error('Sign-in did not succeed. Verify your account or use the existing recovery flow.');
  accessToken=out.access_token;/* Refresh tokens are deliberately not retained. */
  $('login').hidden=true;$('review').hidden=false;show('Signed in. Load the specific TPB request.');
- if($('request-id').value)await load();
+ if(recoveryMode)await loadRecovery();else if($('request-id').value)await load();
 });});
 $('load-request').addEventListener('submit',event=>{event.preventDefault();run(load);});
 for(const action of ['approve','reject','revoke'])$(action).addEventListener('click',()=>run(async()=>{
  if(!reviewed)throw Error('Review a request first.');
  if(action==='approve'&&!$('risk-accepted').checked)throw Error('Confirm your review and risk acceptance first.');
- const out=await api(action,{request_id:reviewed.id,request_sha256:reviewed.hash,...(action==='approve'?{risk_accepted:true}:{})});
- show('Decision: '+out.state+'. Receipt: '+out.correlation_id+'. TPB must separately verify any execution.');
+ const out=await api(recoveryMode&&action==='approve'?'recovery_confirm':action,{request_id:reviewed.id,request_sha256:reviewed.hash,...(action==='approve'?{risk_accepted:true}:{})});
+ show(recoveryMode?'Recovery confirmed. Receipt: '+out.receipt.correlation_id+'. Codex will independently verify registration.':'Decision: '+out.state+'. Receipt: '+out.correlation_id+'. TPB must separately verify any execution.');
  reviewed=null;$('decision').hidden=true;
 }));
 $('sign-out').addEventListener('click',()=>run(async()=>{
