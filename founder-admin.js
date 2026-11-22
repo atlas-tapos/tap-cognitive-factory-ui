@@ -2,6 +2,9 @@ const ENDPOINT='https://naffdaxyizjbqcwkawju.supabase.co/functions/v1/tap-reliab
 const $=id=>document.getElementById(id);
 let accessToken=null,config=null,reviewed=null,busy=false;
 const recoveryMode=new URL(location.href).searchParams.get('recovery')==='elevenlabs';
+// v8: founder-only, bounded renewal of the existing TPB proposer for the single Package 1 release request.
+const RENEW={request_key:'north-star-package-1-commission-20261121',manifest_sha256:'a7dc5bfd862f07ef62966d5889a070a65692344d9eadd4947da3ed08b3990985',minutes:60};
+const renewMode=new URL(location.href).searchParams.get('renew')==='north-star-package-1';
 const show=message=>{$('status').textContent=message;};
 function disable(value){busy=value;for(const el of document.querySelectorAll('button'))el.disabled=value;}
 async function configuration(){
@@ -42,6 +45,17 @@ async function loadRecovery(){
  show('Founder identity verified. Review the exact transaction, then confirm once.');
 }
 
+function loadRenewal(){
+ reviewed={renew:true};$('load-request').hidden=true;$('decision').hidden=false;$('risk-accepted').checked=false;
+ $('outcome').textContent='Renew the existing TPB proposer for one Package 1 release request';
+ $('reason').textContent='The same proposer authorization (no new token) may propose and execute only this request key for at most 60 minutes. You still review and approve the request itself separately.';
+ $('facts').replaceChildren();
+ for(const [label,value]of [['Request key',RENEW.request_key],['Release manifest SHA-256',RENEW.manifest_sha256],['Window (minutes)',String(RENEW.minutes)],['Excluded',['Provider credentials','Deployments','Other administrative requests','Work-order changes']]])field(label,value);
+ $('exact-packet').textContent=JSON.stringify(RENEW,null,2);$('expiry').textContent='Renewal ends '+RENEW.minutes+' minutes after confirmation.';
+ $('approve').textContent='Confirm bounded renewal';$('reject').hidden=true;$('revoke').hidden=true;
+ show('Founder identity verified. Review the exact renewal, then confirm once.');
+}
+
 async function run(fn){if(busy)return;disable(true);try{await fn();}catch(e){show(e.message);}finally{disable(false);}}
 $('sign-in').addEventListener('submit',event=>{event.preventDefault();run(async()=>{
  const form=event.currentTarget,email=form.elements.email.value,password=form.elements.password.value;form.elements.password.value='';
@@ -53,6 +67,7 @@ $('load-request').addEventListener('submit',event=>{event.preventDefault();run(l
 for(const action of ['approve','reject','revoke'])$(action).addEventListener('click',()=>run(async()=>{
  if(!reviewed)throw Error('Review a request first.');
  if(action==='approve'&&!$('risk-accepted').checked)throw Error('Confirm your review and risk acceptance first.');
+ if(reviewed.renew){if(action!=='approve')throw Error('Only confirmation is available for this renewal.');const out=await api('renew_proposer',{packet:RENEW,risk_accepted:true});show('Renewal recorded until '+new Date(out.expires_at).toLocaleString()+'. Receipt: '+out.correlation_id+'.');reviewed=null;$('decision').hidden=true;return;}
  const out=await api(recoveryMode&&action==='approve'?'recovery_confirm':action,{request_id:reviewed.id,request_sha256:reviewed.hash,...(action==='approve'?{risk_accepted:true}:{})});
  show(recoveryMode?'Recovery confirmed. Receipt: '+out.receipt.correlation_id+'. Codex will independently verify registration.':'Decision: '+out.state+'. Receipt: '+out.correlation_id+'. TPB must separately verify any execution.');
  reviewed=null;$('decision').hidden=true;
@@ -72,7 +87,7 @@ async function acceptSignIn(out){
  accessToken=out.access_token;/* Keep access in memory only; discard refresh token. */
  $('login').hidden=true;$('review').hidden=false;
  show('Signed in. Load the specific TPB request.');
- if(recoveryMode)await loadRecovery();else if($('request-id').value)await load();
+ if(renewMode)loadRenewal();else if(recoveryMode)await loadRecovery();else if($('request-id').value)await load();
 }
 $('send-code').addEventListener('submit',event=>{event.preventDefault();run(async()=>{
  const email=$('code-email').value.trim();
