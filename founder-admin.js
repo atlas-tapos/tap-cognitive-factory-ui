@@ -2,9 +2,9 @@ const ENDPOINT='https://naffdaxyizjbqcwkawju.supabase.co/functions/v1/tap-reliab
 const $=id=>document.getElementById(id);
 let accessToken=null,config=null,reviewed=null,busy=false;
 const recoveryMode=new URL(location.href).searchParams.get('recovery')==='elevenlabs';
-// v8: founder-only, bounded renewal of the existing TPB proposer for the single Package 1 release request.
-const RENEW={request_key:'north-star-package-1-commission-20261122',manifest_sha256:'b457a6003680bd6cfa8e3e8be6571803ffd08ce1a7afee4df0331a7b9d3b9def',minutes:60};
-const renewMode=new URL(location.href).searchParams.get('renew')==='north-star-package-1';
+// v9: founder-only, bounded renewal of the existing TPB proposer for the single Package 2 release request.
+const RENEW={request_key:'north-star-package-2-flowlu-create-20261122',manifest_sha256:'4e7916ab1903473c8c181252c4a07b5b9d954ae92b0efb45650efd83a3033e0f',minutes:60};
+const renewMode=new URL(location.href).searchParams.get('renew')==='north-star-package-2';
 const show=message=>{$('status').textContent=message;};
 function disable(value){busy=value;for(const el of document.querySelectorAll('button'))el.disabled=value;}
 async function configuration(){
@@ -47,7 +47,7 @@ async function loadRecovery(){
 
 function loadRenewal(){
  reviewed={renew:true};$('load-request').hidden=true;$('decision').hidden=false;$('risk-accepted').checked=false;
- $('outcome').textContent='Renew the existing TPB proposer for one Package 1 release request';
+ $('outcome').textContent='Renew the existing TPB proposer for one Package 2 release request';
  $('reason').textContent='The same proposer authorization (no new token) may propose and execute only this request key for at most 60 minutes. You still review and approve the request itself separately.';
  $('facts').replaceChildren();
  for(const [label,value]of [['Request key',RENEW.request_key],['Release manifest SHA-256',RENEW.manifest_sha256],['Window (minutes)',String(RENEW.minutes)],['Excluded',['Provider credentials','Deployments','Other administrative requests','Work-order changes']]])field(label,value);
