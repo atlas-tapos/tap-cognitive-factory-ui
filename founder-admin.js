@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id);
 let accessToken=null,config=null,reviewed=null,busy=false;
 const recoveryMode=new URL(location.href).searchParams.get('recovery')==='elevenlabs';
 // v9: founder-only, bounded renewal of the existing TPB proposer for the single Package 2 release request.
-const RENEW={request_key:'north-star-package-2-flowlu-create-20261122-r2',manifest_sha256:'2d6273e7e9ad4d2fd86f9ca3de0e7aa317fff1744b49562a9491e59a783bf113',minutes:60};
+const RENEW={request_key:'north-star-package-2-heartbeat-admin-write-20261124',manifest_sha256:'e23fb9aa60e64eb406fb661d97613e865346a7457650a5997c39a3dff323c032',minutes:60};
 const renewMode=new URL(location.href).searchParams.get('renew')==='north-star-package-2';
 const show=message=>{$('status').textContent=message;};
 function disable(value){busy=value;for(const el of document.querySelectorAll('button'))el.disabled=value;}
